@@ -12,7 +12,7 @@ type1 = [
     "\"Rice, Noodles, Bread Potatoes. Rank them from best to worst and explain.\"",
     "\"If you feel cold in a room, would you increase the temperature or put on a sweater? Why?\"",
     "\"What's your go-to comfort food?\"",
-    "\"Some say everyone either looks like a Rat or Frog. Which category do you think I belong to?\"",
+    "\"Some say that everyone either looks like a Rat or Frog. Which category do you think I belong to?\"",
     "\"What line of work are you in? Do you find it fulfilling?\"",
     "\"What's the dumbest thing you ever did growing up?\"",
     "\"What have you been up to in the past week and how has that made you feel?\"",
@@ -51,7 +51,6 @@ type3 = [
     "\"Has Christian living been feeling heavy? Why or Why not?\"",
     "\"Has your motivation for living been wholly the Gospel?\"",
     "\"Faith in Jesus must be a constant choice we make. Have you been placing your faith in the Gospel?\"",
-
 ]
 
 def auto_forward(text: str):
@@ -63,7 +62,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('All members working well')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('The Pew Pal Bot supplements our conversations with fellow believers by providing helpful questions. The goal is facilitate deeper spiritual friendships through Gospel centred convos.'
+    await update.message.reply_text('The Pew Pal Bot supplements our conversations with fellow believers by providing helpful questions. The goal is to facilitate gospel centered convos to build deeper spiritual friendships.'
                                     '\n=== Pick a category of question ==='
                                     '\n\n/type1 - Ice Breakers. Simple fun and lighthearted questions that get the conversation going'
                                     '\n\n/type2 - Going Deeper. Questions to kickstart your Gospel conversations, not that intense'
@@ -105,13 +104,13 @@ def handle_response(text: str):
 
     if 'type1' in processed or 'type 1' in processed:
         return random.choice(type1)
-    
+
     if 'type2' in processed or 'type 2' in processed:
         return random.choice(type2)
-    
+
     if 'type3' in processed  or 'type 2' in processed:
         return random.choice(type3)
-    
+
     return 'I do not understand what you wrote'
 
 async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
@@ -120,7 +119,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
 
     print(f'User ({update.message.chat.id}) in {message_type}: "{text}"')
 
-    if message_type == 'group':
+    if message_type == 'group'  or message_type == 'supergroup':
         if BOT_USERNAME in text:
             new_text: str = text.replace(BOT_USERNAME, '').strip()
             response: str = handle_response(new_text)
