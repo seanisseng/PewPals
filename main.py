@@ -1,3 +1,7 @@
+const express = require('express')
+const app = express()
+const port = process.env.PORT || 4000;
+
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
