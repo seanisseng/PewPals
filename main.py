@@ -1,10 +1,3 @@
-import os
-from keep_alive import keep_alive
-keep_alive()
-
-bot = Bot(token=os.environ.get('token'))
-dp = Dispatcher(bot)
-
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
