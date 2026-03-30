@@ -1,0 +1,73 @@
+intro = [
+    "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
+    "Some say that everyone either looks like a Rat or a Frog. Which category do you think I belong to?",
+    "If you feel cold in a room, would you increase the temperature or put on a sweater? Why?",
+    "What's your go-to comfort food?",
+    "What's the dumbest thing you ever did growing up?",
+    "What have you been up to in the past week and how has that made you feel?",
+    "What would you like to be known/remembered for?",
+    "What activity do you take the most joy in doing?",
+    "What is your idea of a restful day?",
+    "How long have you been attending our church?",
+    "What are some of your fondest childhood memories?",
+    "What book or movie left a lasting impression on you? Why?",
+    "What's a secret talent that you have or a skill you're proud of?",
+    "Guess if I'm an only child, older, younger, or a middle child?",
+    "Exercise. Love it or hate it?",
+    "What would you describe as your 'perfect day'?",
+    "If you could take a week off from your regular life to immerse yourself in learning something new, what would it be?"
+    "What are you excited about most in your life right now?"
+]
+
+
+church = [
+    "What do you enjoy most about the sermons here?",
+    "Have you been involved in any church activities recently?",
+    "Which talk in the sermon series has been your favourite so far and why?",
+    "What do you think is one thing we can be doing better as a church?",
+    "How have you been actively living out church family?",
+    "How has church family been an encouragement to you?",
+    "How can I pray for you?",
+    "How did you become a Christian?",
+    "How would you describe your relationship with God?",
+    "How are you finding church/small group? Anything you’re particularly excited or concerned about?",
+    "How are your Christian friendships?",
+    "How are your non-Christian friendships?"
+]
+
+
+christian = [
+    "How did you become a Christian?",
+    "How has your joy in the Lord been? Any thanksgiving in the past week?",
+    "What have you been finding especially encouraging?",
+    "What have you been finding especially discouraging?",
+    "Have you been able to find ways to apply what you learn in church to your daily life?",
+    "How has your faith inspired a decision you've made in the past week/month?",
+    "What Bible story has had the most impact on you and why?",
+    "Which aspect of God is most dear to you? Why do you hold closely to that?",
+    "What aspect of God is hardest for you to grapple with? Why has it been a struggle?",
+    "How has following Jesus been challenging for you?",
+    "Who has been a role model / an influential person for you in your Christian faith and why?",
+    "What's something you've been praying / thinking about from sermons / Bible studies / devotions?",
+    "Can you tell me about a significant moment of spiritual growth or transformation in your life?",
+    "Are there any aspects of your faith that you're currently questioning or exploring?",
+    "Can you share a time when you experienced doubt or had your faith challenged? In what ways did it help you grow?",
+    "What role does prayer play in your life, and how do you maintain a consistent prayer life? What have you been praying about?",
+    "Has Christian living been feeling heavy?",
+    "Has your motivation for living been wholly set in the Gospel?",
+    "Faith in Jesus must be a constant choice we make. Have you been actively placing your faith in the Gospel?",
+    "What have you been reading lately? What have you been learning from that?"
+]
+
+work = [
+    "What line of work are you in? Do you find it fulfilling?",
+    "How did you get into this line of work? Has there been anything you have especially enjoyed or struggled with?",
+    "What has been occupying your head space recently?",
+    "To what extent is career/studies an idol?",
+    "Have you thought about what you might do in 1/5/10 years? What attracts you to this?",
+    "When working, do you tend to be idle (undervaluing work) or an idolator (overvaluing work)?",
+    "How do you prioritise your spiritual life amidst your other responsibilities?",
+    "What has been something you've been struggling to give up for the sake of the gospel?",
+    "What have you been excited about lately?",
+    "What has been the highlight/low point of your week? What has been especially hard?"
+]

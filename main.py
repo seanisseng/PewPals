@@ -4,8 +4,9 @@ from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, 
 import random
 import requests
 import urllib.parse
+import os
 
-TOKEN: Final = '7231994891:AAHwgOQCgE1jWVDbkZKo8HeS_LVV04H1eMs'
+TOKEN: Final = os.getenv("API_KEY")
 BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
 
@@ -24,7 +25,10 @@ intro = [
     "What book or movie left a lasting impression on you? Why?",
     "What's a secret talent that you have or a skill you're proud of?",
     "Guess if I'm an only child, older, younger, or a middle child?",
-    "Exercise. Love it or hate it?"
+    "Exercise. Love it or hate it?",
+    "What would you describe as your 'perfect day'?",
+    "If you could take a week off from your regular life to immerse yourself in learning something new, what would it be?",
+    "What are you excited about most in your life right now?"
 ]
 
 
