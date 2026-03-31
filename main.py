@@ -161,12 +161,12 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_waiting:
         context.user_data[AWAITING_FEEDBACK_KEY] = False
-        await update.message.reply_text('Feedback mode turned off.')
+        await update.message.reply_text('Feedback mode turned off. \nPlease type /feedback again if you want to provide feedback')
         return
 
     context.user_data[AWAITING_FEEDBACK_KEY] = True
     await update.message.reply_text(
-        'Please type your question suggestion or query in your next message.'
+        'Please type your question or suggestion in your next message'
     )
 
 # Responses
