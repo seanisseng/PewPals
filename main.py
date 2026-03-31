@@ -27,6 +27,7 @@ load_env_file()
 TOKEN: Final = os.getenv("API_KEY", "")
 BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
+AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
 
 intro = [
     "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
@@ -156,13 +157,17 @@ async def lore_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     "\n\nPew Pals was born to help facilitate these pew conversations. One of the pals behind this is an introvert that honestly finds these conversations hard. The other pal is an extrovert that enjoys putting people into awkward situations with difficult questions. But both pals pray this would be a useful tool in making many many more Pew Pals - for His glory and our good!")
 
 async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    new_text: str = text.replace("/feedback", '').strip()
-    if new_text != '':
-        auto_forward(new_text)
-        await update.message.reply_text('Feedback received')
-    else:
-        await update.message.reply_text('No feedback received')
+    is_waiting = context.user_data.get(AWAITING_FEEDBACK_KEY, False)
+
+    if is_waiting:
+        context.user_data[AWAITING_FEEDBACK_KEY] = False
+        await update.message.reply_text('Feedback mode turned off.')
+        return
+
+    context.user_data[AWAITING_FEEDBACK_KEY] = True
+    await update.message.reply_text(
+        'Please type your question suggestion or query in your next message.'
+    )
 
 # Responses
 
@@ -180,6 +185,17 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
     text: str = update.message.text
 
     print(f'User ({update.message.chat.id}) in {message_type}: "{text}"')
+
+    if context.user_data.get(AWAITING_FEEDBACK_KEY, False):
+        context.user_data[AWAITING_FEEDBACK_KEY] = False
+
+        sender_name = update.effective_user.full_name if update.effective_user else "Unknown"
+        sender_id = update.effective_user.id if update.effective_user else "Unknown"
+        feedback_payload = f"Feedback from {sender_name} ({sender_id}) in {message_type}: {text}"
+
+        auto_forward(feedback_payload)
+        await update.message.reply_text('Feedback received. Thank you!')
+        return
 
     if message_type == 'group'  or message_type == 'supergroup':
         if BOT_USERNAME in text:
@@ -218,7 +234,7 @@ if __name__ == '__main__':
     app.add_handler(CallbackQueryHandler(button_callback))
 
     # Messages
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Errors
     app.add_error_handler(error)
