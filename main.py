@@ -173,7 +173,7 @@ async def sean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🫵👁️👅👁️\nHow have you been struggling for the gospel?")
 
 async def dezree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("You have summoned the beautiful Dezree! \n\nDezree is a legendary figure in the world of Pew Pals, known for being Sean's favourite. Her beauty is said to be so radiant that it can brighten even the darkest of days.")
+    await update.message.reply_text("You have summoned the beautiful Dezree! \n\nDezree is a legendary figure in the world of Pew Pals, known for being Sean's favourite. Her beauty is said to be so radiant that it can brighten even the darkest of days 😍😍😍")
 # Responses
 
 
