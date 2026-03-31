@@ -41,7 +41,7 @@ To set up The Pew Pal Bot for your Telegram group or personal use, follow these 
 2. **Set Up Environment Variables**:
    Create a `.env` file in the root directory and add the following:
    ```plaintext
-   BOT_TOKEN=your-telegram-bot-token
+   API_KEY=your-telegram-bot-token
    ```
 
    Replace `your-telegram-bot-token` with the token you received from [BotFather](https://core.telegram.org/bots#botfather).
@@ -49,7 +49,7 @@ To set up The Pew Pal Bot for your Telegram group or personal use, follow these 
 3. **Run the Bot**:
    Start the bot using:
    ```bash
-   python bot.py
+   python main.py
    ```
 
 4. **Add the Bot to Telegram**:
@@ -62,4 +62,44 @@ To set up The Pew Pal Bot for your Telegram group or personal use, follow these 
 1. Add the bot to your group or start a direct conversation.
 2. Use `/question` to receive a random question, or `/category [name]` to explore specific topics.
 3. Use it during small group sessions, one-on-one conversations, or personal reflection to foster deeper connections.
+
+---
+
+## **Deploy to Heroku**
+
+This repository is configured to run on Heroku as a **worker** dyno using long polling.
+
+1. **Create the app and login**:
+   ```bash
+   heroku login
+   heroku create <your-app-name>
+   ```
+
+2. **Set required config vars**:
+   ```bash
+   heroku config:set API_KEY=<your-telegram-bot-token>
+   ```
+
+3. **Deploy**:
+   ```bash
+   git push heroku main
+   ```
+   If your default branch is `master`, use:
+   ```bash
+   git push heroku master
+   ```
+
+4. **Start the worker dyno**:
+   ```bash
+   heroku ps:scale worker=1
+   ```
+
+5. **Check logs**:
+   ```bash
+   heroku logs --tail
+   ```
+
+Notes:
+- `Procfile` starts the bot with `python main.py`.
+- Do not commit `.env`; use Heroku config vars in production.
 

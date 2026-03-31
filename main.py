@@ -6,7 +6,25 @@ import requests
 import urllib.parse
 import os
 
-TOKEN: Final = os.getenv("API_KEY")
+def load_env_file(file_path: str = ".env"):
+    if not os.path.exists(file_path):
+        return
+
+    with open(file_path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+
+
+load_env_file()
+
+TOKEN: Final = os.getenv("API_KEY", "")
 BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
 
@@ -44,8 +62,8 @@ church = [
     "How would you describe your relationship with God?",
     "How are you finding church/small group? Anything you’re particularly excited or concerned about?",
     "How are your Christian friendships?",
-    "How are your non-Christian friendships?"
-]
+    "How are your non-Christian friendships?",
+    "Share a memory when you felt especially encouraged by someone/something in church.",]
 
 
 christian = [
@@ -181,6 +199,12 @@ async def error(update: Update, context:ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     print('Starting bot...')
+
+    if not TOKEN:
+        raise RuntimeError(
+            "Missing API_KEY. Set it in environment or add API_KEY=<token> to a .env file."
+        )
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     # Commands
