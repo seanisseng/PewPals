@@ -169,6 +169,11 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Please type your question or suggestion in your next message'
     )
 
+async def sean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("How have you been struggling for the gospel?")
+
+async def dezree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("You have summoned the beautiful Dezree! \n\nDezree is a legendary figure in the world of Pew Pals, known for her simply being the best. Her beauty is said to be so radiant that it can brighten even the darkest of days. And most importantly, she is Sean's favourite")
 # Responses
 
 
@@ -226,11 +231,10 @@ if __name__ == '__main__':
     # Commands
     app.add_handler(CommandHandler('start', start_command))
     app.add_handler(CommandHandler('help', help_command))
-    # app.add_handler(CommandHandler('type1', tier1_command))
-    # app.add_handler(CommandHandler('type2', tier2_command))
-    # app.add_handler(CommandHandler('type3', tier3_command))
     app.add_handler(CommandHandler('lore', lore_command))
     app.add_handler(CommandHandler('feedback', feedback_command))
+    app.add_handler(CommandHandler('Sean', sean_command))
+    app.add_handler(CommandHandler('Dezree', dezree_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     # Messages
