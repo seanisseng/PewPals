@@ -144,11 +144,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start: Opens the question menu (buttons for Intro, Work/Life, Church, Christian Living, Surprise Me!) and shows short onboarding. Clicking a button sends a random question from that category.\n\n"
-        "/pray or /prayer: Adds or updates the current user’s prayer request for the current chat (one request per user). Use /pray <text> or /prayer <text>. NOTE: these commands only work inside group or supergroup chats. To add a request, add the bot to your group and run /pray or /prayer there or post a message that starts with \"Prayer request:\" in the group.\n\n"
+        "/pray or /prayer: Adds or updates the current user’s prayer request for the current chat (one request per user).\n"
+        " - NOTE: these commands only work inside group or supergroup chats. Add the bot to your group and run /pray or /prayer there.\n\n"
         "/prayerlist: Shows prayer requests depending on where you run it:\n"
         " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
         " - In a private DM with the bot: forward a message from a group, or run /prayerlist <group name|chat_id> to fetch another group's requests (the bot will verify you are a member before returning the list).\n\n"
-        "/clear_prayers: Clears the prayer request list for the current chat.\n\n"
+        "/clear_prayers: Clears the prayer request list for the current chat. NOTE: this command only works inside group or supergroup chats.\n\n"
         "/lore: Provides the bot’s about/mission text.\n\n"
         "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
     )
@@ -302,7 +303,12 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.chat_data[PRAYER_REQUESTS_KEY] = []
+    # Allow clearing only in group chats
+    if update.effective_chat.type not in ("group", "supergroup"):
+        await update.message.reply_text('The /clear_prayers command can only be used in a group or supergroup chat.')
+        return
+
+    context.chat_data[PRAYER_REQUESTS_KEY] = {}
     await update.message.reply_text('Prayer request list cleared for this chat.')
     
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
