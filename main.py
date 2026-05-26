@@ -29,6 +29,7 @@ BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
 AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
 PRAYER_REQUESTS_KEY: Final = "prayer_requests"
+LAST_PRAYERLIST_CHAT_ID_KEY: Final = "last_prayerlist_chat_id"
 PRAYER_PREFIXES: Final = (
     "prayer request:",
     "prayer request -",
@@ -135,8 +136,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '<b>Welcome to Pew Pals!</b>\n'
         'Use the buttons below to generate a conversation question for your group.\n\n'
-        'If you want to collect prayer requests instead, use /pray &lt;request&gt; or send a message that starts with "Prayer request:".\n'
-        'Use /prayerlist to see the requests collected in this chat.',
+        'If you want to collect prayer requests instead,\n'
+        '1. Add this bot to your group chat.\n'
+        '2. Use /pray &lt;request&gt; to add your prayer request.\n'
+        '3. Use /prayerlist to see the requests collected in this chat.',
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -178,6 +181,23 @@ def extract_prayer_request(text: str):
     return ""
 
 
+def normalize_lookup_text(value: str):
+    return " ".join(value.lower().split())
+
+
+def get_forwarded_chat_info(message):
+    forward_from_chat = getattr(message, "forward_from_chat", None)
+    if forward_from_chat:
+        return forward_from_chat.id, getattr(forward_from_chat, "title", None)
+
+    forward_origin = getattr(message, "forward_origin", None)
+    origin_chat = getattr(forward_origin, "chat", None)
+    if origin_chat:
+        return origin_chat.id, getattr(origin_chat, "title", None)
+
+    return None, None
+
+
 def format_prayer_requests(requests):
     lines = ["Prayer Requests List🙏🏻:"]
 
@@ -215,7 +235,8 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Allow this command only in group chats
     if update.effective_chat.type not in ("group", "supergroup"):
         await update.message.reply_text(
-            'The /pray command is for group chats only. Add me to a group and use /pray <text> or post a message that starts with "Prayer request:" in the group.'
+            'The /pray command is for group chats only.\n'
+            'Add me to a group and use /pray <text>'
         )
         return
 
@@ -223,13 +244,14 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not prayer_text:
         await update.message.reply_text(
-            'Send a request like /pray Please pray for my exams, or post a message that starts with "Prayer request:".'
+            'Add a prayer request like /pray For my faith and love in God to grow.'
         )
         return
 
     store_prayer_request(context, update, prayer_text)
 
-    await update.message.reply_text('Prayer request captured or updated. Use /prayerlist to see the running list.')
+    await update.message.reply_text('Prayer request captured or updated.\n'
+    'Use /prayerlist to see the running list.')
 
 
 # Note: the old `prayers_command` was removed. Use `prayerlist_command` instead.
@@ -261,7 +283,12 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception:
             # Search cached titles
             titles = context.application.bot_data.get(CHAT_TITLES_KEY, {})
-            matches = [(cid, title) for cid, title in titles.items() if arg.lower() in title.lower()]
+            normalized_arg = normalize_lookup_text(arg)
+            matches = [
+                (cid, title)
+                for cid, title in titles.items()
+                if normalized_arg in normalize_lookup_text(title)
+            ]
             if len(matches) == 1:
                 target_chat_id = matches[0][0]
             elif len(matches) == 0:
@@ -275,9 +302,11 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await update.message.reply_text("\n".join(msg_lines))
                 return
 
-    # If forwarded message, use its chat
+    # If the command itself is forwarded, or we've previously captured a forwarded group message, use that chat
     elif update.message and getattr(update.message, 'forward_from_chat', None):
         target_chat_id = update.message.forward_from_chat.id
+    elif context.user_data.get(LAST_PRAYERLIST_CHAT_ID_KEY):
+        target_chat_id = context.user_data.get(LAST_PRAYERLIST_CHAT_ID_KEY)
     else:
         await update.message.reply_text('Usage: forward a message from the group to me, or send /prayerlist <group name|chat_id>.')
         return
@@ -398,6 +427,17 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         else:
             return
     else:
+        if update.message and getattr(update.message, 'forward_from_chat', None):
+            forwarded_chat_id, forwarded_chat_title = get_forwarded_chat_info(update.message)
+            if forwarded_chat_id is not None:
+                context.user_data[LAST_PRAYERLIST_CHAT_ID_KEY] = forwarded_chat_id
+                if forwarded_chat_title:
+                    context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[forwarded_chat_id] = forwarded_chat_title
+                await update.message.reply_text(
+                    f"Captured group reference for prayer lookup: {forwarded_chat_title or forwarded_chat_id}.\n"
+                    f"Now send /prayerlist to view that group's prayer requests."
+                )
+                return
         response: str = handle_response(text)
 
     print('Bot:', response)
