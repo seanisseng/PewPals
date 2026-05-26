@@ -37,7 +37,6 @@ BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
 AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
 PRAYER_REQUESTS_KEY: Final = "prayer_requests"
-LAST_PRAYERLIST_CHAT_ID_KEY: Final = "last_prayerlist_chat_id"
 PENDING_PRAYERLIST_SELECTION_KEY: Final = "pending_prayerlist_selection"
 AWAITING_PRAYERLIST_CHAT_SHARE_KEY: Final = "awaiting_prayerlist_chat_share"
 PRAYERLIST_CHAT_REQUEST_ID_KEY: Final = "prayerlist_chat_request_id"
@@ -196,19 +195,6 @@ def extract_prayer_request(text: str):
 
 def normalize_lookup_text(value: str):
     return " ".join(value.lower().split())
-
-
-def get_forwarded_chat_info(message):
-    forward_from_chat = getattr(message, "forward_from_chat", None)
-    if forward_from_chat:
-        return forward_from_chat.id, getattr(forward_from_chat, "title", None)
-
-    forward_origin = getattr(message, "forward_origin", None)
-    origin_chat = getattr(forward_origin, "chat", None)
-    if origin_chat:
-        return origin_chat.id, getattr(origin_chat, "title", None)
-
-    return None, None
 
 
 def track_user_group(context: ContextTypes.DEFAULT_TYPE, user_id: int, chat_id: int, title: str = ""):
@@ -418,9 +404,10 @@ async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
         track_user_group(context, update.effective_user.id, selected_chat_id, selected_title)
 
     await message.reply_text(
-        f"Selected group: {selected_title} ({selected_chat_id}). Fetching prayer list...",
+        f"Fetching prayer list for {selected_title}...",
         reply_markup=ReplyKeyboardRemove(),
     )
+
     await send_prayerlist_for_chat(update, context, selected_chat_id)
 
 
@@ -545,24 +532,6 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         else:
             return
     else:
-        if update.message:
-            forwarded_chat_id, forwarded_chat_title = get_forwarded_chat_info(update.message)
-            if forwarded_chat_id is not None:
-                context.user_data[LAST_PRAYERLIST_CHAT_ID_KEY] = forwarded_chat_id
-                if forwarded_chat_title:
-                    context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[forwarded_chat_id] = forwarded_chat_title
-                if update.effective_user:
-                    track_user_group(
-                        context,
-                        update.effective_user.id,
-                        forwarded_chat_id,
-                        forwarded_chat_title or f"Group {forwarded_chat_id}",
-                    )
-                await update.message.reply_text(
-                    f"Captured group reference for prayer lookup: {forwarded_chat_title or forwarded_chat_id}.\n"
-                    f"Now send /prayerlist to view that group's prayer requests."
-                )
-                return
         response: str = handle_response(text)
 
     print('Bot:', response)
