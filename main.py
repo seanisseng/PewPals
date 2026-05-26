@@ -28,6 +28,14 @@ TOKEN: Final = os.getenv("API_KEY", "")
 BOT_USERNAME: Final = '@pewpalsbot'
 Group = "-4245807653"
 AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
+PRAYER_REQUESTS_KEY: Final = "prayer_requests"
+PRAYER_PREFIXES: Final = (
+    "prayer request:",
+    "prayer request -",
+    "prayer request",
+    "prayer:",
+    "prayer -",
+)
 
 intro = [
     "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
@@ -129,7 +137,89 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Grab a friend, pick a category of question and start chatting away 😁')
+    await update.message.reply_text(
+        'Grab a friend, pick a category of question and start chatting away 😁\n\n'
+        'For prayer requests in a group, use /prayer <request> or start a message with "Prayer request:".\n'
+        'Use /prayers to see the requests that have been collected so far.'
+    )
+
+
+def get_prayer_requests(context: ContextTypes.DEFAULT_TYPE):
+    return context.chat_data.setdefault(PRAYER_REQUESTS_KEY, [])
+
+
+def extract_prayer_request(text: str):
+    lowered = text.strip().lower()
+
+    for prefix in PRAYER_PREFIXES:
+        if lowered.startswith(prefix):
+            return text[len(prefix):].strip(" :-")
+
+    return ""
+
+
+def format_prayer_requests(requests):
+    lines = ["Prayer requests collected so far:"]
+
+    for index, request in enumerate(requests, start=1):
+        lines.append(f"{index}. {request['name']}: {request['text']}")
+
+    return "\n".join(lines)
+
+
+async def send_long_message(update: Update, text: str):
+    max_length = 3800
+
+    if len(text) <= max_length:
+        await update.message.reply_text(text)
+        return
+
+    current_chunk = []
+    current_length = 0
+
+    for line in text.splitlines():
+        line_length = len(line) + 1
+        if current_chunk and current_length + line_length > max_length:
+            await update.message.reply_text("\n".join(current_chunk))
+            current_chunk = []
+            current_length = 0
+
+        current_chunk.append(line)
+        current_length += line_length
+
+    if current_chunk:
+        await update.message.reply_text("\n".join(current_chunk))
+
+
+async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    prayer_text = " ".join(context.args).strip()
+
+    if not prayer_text:
+        await update.message.reply_text(
+            'Send a request like /prayer Please pray for my exams, or post a message that starts with "Prayer request:".'
+        )
+        return
+
+    prayer_requests = get_prayer_requests(context)
+    sender_name = update.effective_user.full_name if update.effective_user else "Unknown"
+    prayer_requests.append({"name": sender_name, "text": prayer_text})
+
+    await update.message.reply_text('Prayer request captured. Use /prayers to see the running list.')
+
+
+async def prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    prayer_requests = get_prayer_requests(context)
+
+    if not prayer_requests:
+        await update.message.reply_text('No prayer requests have been captured yet.')
+        return
+
+    await send_long_message(update, format_prayer_requests(prayer_requests))
+
+
+async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.chat_data[PRAYER_REQUESTS_KEY] = []
+    await update.message.reply_text('Prayer request list cleared for this chat.')
     
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -203,6 +293,15 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         return
 
     if message_type == 'group'  or message_type == 'supergroup':
+        prayer_request = extract_prayer_request(text)
+
+        if prayer_request:
+            prayer_requests = get_prayer_requests(context)
+            sender_name = update.effective_user.full_name if update.effective_user else "Unknown"
+            prayer_requests.append({"name": sender_name, "text": prayer_request})
+            await update.message.reply_text('Prayer request captured. Use /prayers to see the running list.')
+            return
+
         if BOT_USERNAME in text:
             new_text: str = text.replace(BOT_USERNAME, '').strip()
             response: str = handle_response(new_text)
@@ -233,6 +332,9 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('lore', lore_command))
     app.add_handler(CommandHandler('feedback', feedback_command))
+    app.add_handler(CommandHandler('prayer', prayer_command))
+    app.add_handler(CommandHandler('prayers', prayers_command))
+    app.add_handler(CommandHandler('clear_prayers', clear_prayers_command))
     app.add_handler(CommandHandler('Sean', sean_command))
     app.add_handler(CommandHandler('Dezree', dezree_command))
     app.add_handler(CallbackQueryHandler(button_callback))

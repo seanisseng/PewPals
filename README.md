@@ -11,6 +11,7 @@ In our busy lives, it's easy for conversations to stay surface-level. The Pew Pa
 - **Category Selection**: Users can choose specific categories like *Intro*, *Work/Life*, *Church*, and *Christian Living* to tailor their conversations.  
 - **Surprise Me!**: Can’t decide? Use the *Surprise Me!* button to get a random question from any category.  
 - **Feedback Support**: Users can share suggestions or feedback using the `/feedback` command, helping improve the bot's content and functionality.  
+- **Prayer Request Capture**: In a group chat, users can submit prayer requests with `/prayer <request>` or a message starting with `Prayer request:` and review them later with `/prayers`.  
 
 ---
 
@@ -27,6 +28,9 @@ Here are the available commands for interacting with The Pew Pal Bot:
 | `/help`              | Provides instructions on how to use the bot.                          |
 | `/lore`              | Shares a short blurb about the heart and purpose behind Pew Pals.     |
 | `/feedback`          | Allows users to suggest questions and provide feedback. Type the command followed by your feedback message. |
+| `/prayer`            | Adds a prayer request to the current group chat's running list.        |
+| `/prayers`           | Returns the prayer requests that have been captured in the current chat. |
+| `/clear_prayers`     | Clears the stored prayer request list for the current chat.            |
 
 ---
 
@@ -64,6 +68,11 @@ To set up The Pew Pal Bot for your Telegram group or personal use, follow these 
 1. Add the bot to your group or start a direct conversation.
 2. Use `/question` to receive a random question, or `/category [name]` to explore specific topics.
 3. Use it during small group sessions, one-on-one conversations, or personal reflection to foster deeper connections.
+4. In a group, collect prayer requests with `/prayer <request>` or a message that starts with `Prayer request:`.
+5. Use `/prayers` to print the collated requests for the chat.
+
+Note:
+- If you want the bot to pick up ordinary group messages instead of only commands and replies, make sure Telegram privacy mode is disabled for the bot in BotFather.
 
 ---
 
