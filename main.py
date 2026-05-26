@@ -132,7 +132,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Send the message with the menu
     await update.message.reply_text(
-        'Select a category of Question 🤩:',
+        'Welcome to Pew Pals!\n\n'
+        'Use the buttons below to generate a conversation question for your group.\n'
+        'If you want to collect prayer requests instead, use /pray <request> or send a message that starts with "Prayer request:".\n'
+        'Use /prayers to see the requests collected in this chat.',
         reply_markup=reply_markup
     )
 
@@ -168,7 +171,7 @@ def extract_prayer_request(text: str):
 
 
 def format_prayer_requests(requests):
-    lines = ["Prayer requests collected so far:"]
+    lines = ["Prayer Requests List🙏🏻:"]
 
     for index, request in enumerate(requests.values(), start=1):
         lines.append(f"{index}. {request['name']}: {request['text']}")
@@ -249,9 +252,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(response)
 
 async def lore_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Pew Pals was born from the firm conviction that the Church is built up to maturity through the ministry of the Pew, not a select few. A large bulk of this ministry is made up of the informal yet intentional gospel conversations that take place between members of the local body."
+    await update.message.reply_text("Pew Pals was born to help believers keep conversations going with thoughtful questions and shared prayer requests. It gives groups an easy way to spark deeper gospel-centered discussion and to collect requests they can pray through together."
                                     "\n\nAccording to Paul, a properly functioning body looks like Jew, Greek, slave and free, having the same care for one another, seeking to love and build up one another (1 Cor 12). People who would otherwise never be caught in the same room together from the world's standpoint. That means that ministry of the pew is especially important between unlikely friends in the local body. We need them and they need us. It's this kind of body that displays the supernatural logic-defying power of the gospel for the world to see."
-                                    "\n\nPew Pals was born to help facilitate these pew conversations. One of the pals behind this is an introvert that honestly finds these conversations hard. The other pal is an extrovert that enjoys putting people into awkward situations with difficult questions. But both pals pray this would be a useful tool in making many many more Pew Pals - for His glory and our good!")
+                                    "\n\nPew Pals was born to help facilitate those conversations and prayers. One of the pals behind this is an introvert that honestly finds these conversations hard. The other pal is an extrovert that enjoys putting people into awkward situations with difficult questions. But both pals pray this would be a useful tool in making many many more Pew Pals - for His glory and our good!")
 
 async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_waiting = context.user_data.get(AWAITING_FEEDBACK_KEY, False)
@@ -268,9 +271,6 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def sean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("How have you been struggling for the gospel? 🫵👁👅👁")
-
-async def dezree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("You have summoned the beautiful Dezree! \n\nDezree is a legendary figure in the world of Pew Pals, known for being Sean's favourite. Her beauty is said to be so radiant that it can brighten even the darkest of days 😍😍😍")
 # Responses
 
 
@@ -304,7 +304,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
 
         if prayer_request:
             store_prayer_request(context, update, prayer_request)
-            await update.message.reply_text('Prayer request captured or updated. Use /prayers to see the running list.')
+            await update.message.reply_text('Prayer request captured or updated.\nUse /prayers to see the running list.')
             return
 
         if BOT_USERNAME in text:
@@ -341,7 +341,6 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('prayers', prayers_command))
     app.add_handler(CommandHandler('clear_prayers', clear_prayers_command))
     app.add_handler(CommandHandler('Sean', sean_command))
-    app.add_handler(CommandHandler('Dezree', dezree_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     # Messages

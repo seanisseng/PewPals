@@ -1,6 +1,6 @@
 ## **Description**
 
-In our busy lives, it's easy for conversations to stay surface-level. The Pew Pal Bot helps guide discussions toward deeper, more spiritually enriching topics. By suggesting relevant and reflective questions, it encourages believers to engage in gospel-centered conversations that build up and strengthen spiritual friendships.
+In our busy lives, it's easy for conversations to stay surface-level. The Pew Pal Bot helps guide discussions toward deeper, more spiritually enriching topics by suggesting relevant questions and collecting prayer requests for groups to pray through together.
 
 [@PewPalsbot](https://t.me/PewPalsbot) on Telegram
 
