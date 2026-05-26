@@ -137,14 +137,14 @@ def auto_forward(text: str):
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Intro / onboarding explaining the two main purposes of the bot
     message = (
-        "<b>Welcome to Pew Pals!🤩🥸🤠</b>\n\n"
-        "<b>What I do</b>\n"
-        "1) <b>Conversation prompts🥳</b>\n"
-        "Use <code>/questions</code> to get conversation prompts in a group chat or in private with the bot.\n\n"
-        "2) <b>Collect prayer requests😇</b>\n"
-        "Add the bot to a group and use <code>/pray &lt;request&gt;</code> to collate prayer requests for that group.\n"
-        "Run <code>/prayerlist</code> in that group to see the collected requests.\n"
-        "Run <code>/prayerlist</code> in a private chat with the bot and tap 'Choose a Group 👥' to view a group's requests without spamming the group.\n"
+        "<b>Welcome to Pew Pals!🤩🥸</b>\n\n"
+        "<b>What I do?🤔</b>\n"
+        "<b>1) Conversation prompts🤠</b>\n"
+        "Use /questions to get conversation prompts in a group chat or in private with the bot.\n\n"
+        "<b>2) Collect prayer requests😇</b>\n"
+        "- Add the bot to a group and use /pray <request> to collate prayer requests for that group.\n"
+        "- Run /prayerlist in that group to see the collected requests.\n"
+        "Run /prayerlist in a private chat with the bot and tap 'Choose a Group 👥' to view a group's requests without spamming the group.\n"
     )
 
     await update.message.reply_text(message, parse_mode='HTML')
@@ -160,7 +160,7 @@ async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        '<b>Questions Menu</b>\n'
+        '<b>Questions Menu🥳</b>\n'
         'Use the buttons below to select a category of question for your group.',
         reply_markup=reply_markup,
         parse_mode='HTML'
@@ -168,15 +168,14 @@ async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "/start: Opens the question menu (buttons for Intro, Work/Life, Church, Christian Living, Surprise Me!) and shows short onboarding. Clicking a button sends a random question from that category.\n\n"
-        "/pray or /prayer: Adds or updates the current user’s prayer request for the current chat (one request per user).\n"
-        " - NOTE: these commands only work inside group or supergroup chats. Add the bot to your group and run /pray or /prayer there.\n\n"
-        "/prayerlist: Shows prayer requests depending on where you run it:\n"
-        " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
-        " - In a private DM with the bot: run /prayerlist, tap Choose a Group 👥, then pick the group. The selected group ID is used to fetch that group's prayer list.\n\n"
-        "/clear_prayers: Clears the prayer request list for the current chat. NOTE: this command only works inside group or supergroup chats.\n\n"
-        "/lore: Provides the bot’s about/mission text.\n\n"
-        "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
+        "<b>Commands💬</b>\n"
+        "<b>/questions</b> — Open the prompts menu.\n"
+        "<b>/pray</b> or <b>/prayer</b> — Add/update your prayer request (groupchats only).\n"
+        "<b>/prayerlist</b> — In a group: shows that group's requests. In private: run and tap 'Choose a Group 👥' to select a group.\n"
+        "<b>/clear_prayers</b> — Clear the prayer list for this group (groupchats only).\n"
+        "<b>/lore</b> — About the bot.\n"
+        "<b>/feedback</b> — Send feedback to the owners.\n",
+        parse_mode='HTML'
     )
 
 
@@ -372,7 +371,7 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data[AWAITING_PRAYERLIST_CHAT_SHARE_KEY] = True
     context.user_data[PRAYERLIST_CHAT_REQUEST_ID_KEY] = PRAYERLIST_CHAT_REQUEST_ID
     await update.message.reply_text(
-        "Tap the button below and select a group. I'll use that group ID to fetch its prayer list.",
+        "Tap the button below and select a group to fetch its prayer list.",
         reply_markup=build_prayerlist_chat_picker_markup(),
     )
 
@@ -436,7 +435,7 @@ async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
         track_user_group(context, update.effective_user.id, selected_chat_id, selected_title)
 
     await message.reply_text(
-        f"Fetching prayer list for {selected_title}...",
+        f"Fetching prayer list for {selected_title}:",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -504,7 +503,7 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data[AWAITING_FEEDBACK_KEY] = True
     await update.message.reply_text(
-        'Please type your question or suggestion in your next message'
+        'Please type your question or suggestion in your next message🗳'
     )
 
 async def sean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -534,7 +533,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         feedback_payload = f"Feedback from {sender_name} ({sender_id}) in {message_type}: {text}"
 
         auto_forward(feedback_payload)
-        await update.message.reply_text('Feedback received. Thank you!')
+        await update.message.reply_text('Feedback received✅\nThank you!')
         return
 
     if message_type == 'group'  or message_type == 'supergroup':
