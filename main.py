@@ -36,6 +36,7 @@ PRAYER_PREFIXES: Final = (
     "prayer:",
     "prayer -",
 )
+CHAT_TITLES_KEY: Final = "chat_titles"
 
 intro = [
     "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
@@ -143,12 +144,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start: Opens the question menu (buttons for Intro, Work/Life, Church, Christian Living, Surprise Me!) and shows short onboarding. Clicking a button sends a random question from that category.\n\n"
-        "/lore: Sends the bot’s about/mission text (the longer \"Pew Pals was born…\" message).\n\n"
+        "/lore: P the bot’s about/mission text.\n\n"
         "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
         "/pray: Adds or updates the current user’s prayer request for the current chat (one request per user). Use /pray <text>.\n\n"
         "/prayers: Sends the collated list of prayer requests stored for the current chat (one entry per submitting user).\n\n"
         "/clear_prayers: Clears the prayer request list for the current chat.\n\n"
-        "/prayers_for: In a private chat with the bot, forward a message from a group (or pass the group chat id) to retrieve that group's prayer requests if you are a member."
+        "/prayerlist: In a private chat with the bot, forward a message from a group (or pass the group chat id or group name) to retrieve that group's prayer requests if you are a member."
     )
 
 
@@ -232,35 +233,50 @@ async def prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_long_message(update, format_prayer_requests(prayer_requests))
 
 
-async def prayers_for_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # This command must be used in a private chat with the bot.
     if update.effective_chat.type != 'private':
         await update.message.reply_text('Please DM me this command or forward a group message to me.')
         return
 
-    # Determine target chat id: first arg (chat id) or forwarded message's chat
     target_chat_id = None
+
+    # If args provided, treat as chat id or group name
     if context.args:
+        arg = " ".join(context.args).strip()
         try:
-            target_chat_id = int(context.args[0])
+            target_chat_id = int(arg)
         except Exception:
-            await update.message.reply_text('Chat id must be a number. Or forward a message from the group to me instead.')
-            return
+            # Search cached titles
+            titles = context.application.bot_data.get(CHAT_TITLES_KEY, {})
+            matches = [(cid, title) for cid, title in titles.items() if arg.lower() in title.lower()]
+            if len(matches) == 1:
+                target_chat_id = matches[0][0]
+            elif len(matches) == 0:
+                await update.message.reply_text("No groups matched that name. Forward a message from the group or provide the chat id.")
+                return
+            else:
+                msg_lines = ["Multiple groups matched:"]
+                for cid, title in matches:
+                    msg_lines.append(f"- {title} ({cid})")
+                msg_lines.append("Please forward a message from the intended group or use the numeric chat id.")
+                await update.message.reply_text("\n".join(msg_lines))
+                return
+
+    # If forwarded message, use its chat
     elif update.message and getattr(update.message, 'forward_from_chat', None):
         target_chat_id = update.message.forward_from_chat.id
     else:
-        await update.message.reply_text('Usage: forward a message from the group to me, or send /prayers_for <chat_id>.')
+        await update.message.reply_text('Usage: forward a message from the group to me, or send /prayerlist <group name|chat_id>.')
         return
 
     user_id = update.effective_user.id
     try:
-        # verify membership; will raise if bot cannot access or user not a member
         await context.bot.get_chat_member(target_chat_id, user_id)
     except Exception:
         await update.message.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
         return
 
-    # Access the application's chat_data for that chat (same in-memory store used by the bot)
     chat_store = context.application.chat_data.get(target_chat_id)
     if not chat_store:
         await update.message.reply_text('No prayer requests found for that group.')
@@ -347,6 +363,11 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         return
 
     if message_type == 'group'  or message_type == 'supergroup':
+        # Cache the group's title so users can refer to it later from a private chat
+        chat = update.message.chat
+        if getattr(chat, 'title', None):
+            context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[chat.id] = chat.title
+
         prayer_request = extract_prayer_request(text)
 
         if prayer_request:
@@ -387,6 +408,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('pray', prayer_command))
     app.add_handler(CommandHandler('prayers', prayers_command))
     app.add_handler(CommandHandler('clear_prayers', clear_prayers_command))
+    app.add_handler(CommandHandler('prayerlist', prayerlist_command))
     app.add_handler(CommandHandler('Sean', sean_command))
     app.add_handler(CallbackQueryHandler(button_callback))
 
