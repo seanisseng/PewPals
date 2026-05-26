@@ -132,18 +132,23 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Send the message with the menu
     await update.message.reply_text(
-        'Welcome to Pew Pals!\n'
+        '<b>Welcome to Pew Pals!</b>\n'
         'Use the buttons below to generate a conversation question for your group.\n\n'
         'If you want to collect prayer requests instead, use /pray <request> or send a message that starts with "Prayer request:".\n'
         'Use /prayers to see the requests collected in this chat.',
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode='HTML'
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        'Grab a friend, pick a category of question and start chatting away 😁\n\n'
-        'For prayer requests in a group, use /pray <request> or start a message with "Prayer request:".\n'
-        'Use /prayers to see the requests that have been collected so far.'
+        "/start: Opens the question menu (buttons for Intro, Work/Life, Church, Christian Living, Surprise Me!) and shows short onboarding. Clicking a button sends a random question from that category.\n\n"
+        "/help: Sends short usage tips: how to generate questions, submit prayer requests (/pray or message prefix), and view collected requests (/prayers).\n\n"
+        "/lore: Sends the bot’s about/mission text (the longer \"Pew Pals was born…\" message).\n\n"
+        "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
+        "/pray: Adds or updates the current user’s prayer request for the current chat (one request per user). Use /pray <text>.\n\n"
+        "/prayers: Sends the collated list of prayer requests stored for the current chat (one entry per submitting user).\n\n"
+        "/clear_prayers: Clears the prayer request list for the current chat."
     )
 
 
