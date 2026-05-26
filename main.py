@@ -142,7 +142,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "<b>1) Conversation prompts🤠</b>\n"
         "Use /questions to get conversation prompts in a group chat or in private with the bot.\n\n"
         "<b>2) Collect prayer requests😇</b>\n"
-        "- Add the bot to a group and use /pray <request> to collate prayer requests for that group.\n"
+        "- Add the bot to a group and use /pray &lt;request&gt; to collate prayer requests for that group.\n"
         "- Run /prayerlist in that group to see the collected requests.\n"
         "Run /prayerlist in a private chat with the bot and tap 'Choose a Group 👥' to view a group's requests without spamming the group.\n"
     )
