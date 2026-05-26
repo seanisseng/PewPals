@@ -152,7 +152,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         " - NOTE: these commands only work inside group or supergroup chats. Add the bot to your group and run /pray or /prayer there.\n\n"
         "/prayerlist: Shows prayer requests depending on where you run it:\n"
         " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
-        " - In a private DM with the bot: forward a message from a group, or run /prayerlist <group name|chat_id> to fetch another group's requests (the bot will verify you are a member before returning the list).\n\n"
+        " - In a private DM with the bot: run /prayerlist and pick a group from the selector (you can also forward a group message or use /prayerlist <group name|chat_id> to narrow choices). The bot will verify you are a member before returning that group's requests.\n\n"
         "/clear_prayers: Clears the prayer request list for the current chat. NOTE: this command only works inside group or supergroup chats.\n\n"
         "/lore: Provides the bot’s about/mission text.\n\n"
         "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
@@ -232,27 +232,35 @@ async def show_prayerlist_choice_prompt(update: Update, context: ContextTypes.DE
     keyboard.append([InlineKeyboardButton("Cancel", callback_data="prayerlist_cancel")])
 
     await update.message.reply_text(
-        "I found more than one group you can access. Which prayer list do you want?",
+        "Select a group to view its prayer list:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
 async def send_prayerlist_for_chat(update: Update, context: ContextTypes.DEFAULT_TYPE, target_chat_id: int):
+    reply_target = update.effective_message
+    if not reply_target:
+        return
+
     user_id = update.effective_user.id
     try:
-        await context.bot.get_chat_member(target_chat_id, user_id)
+        member = await context.bot.get_chat_member(target_chat_id, user_id)
     except Exception:
-        await update.message.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
+        await reply_target.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
+        return
+
+    if getattr(member, "status", None) in ("left", "kicked"):
+        await reply_target.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
         return
 
     chat_store = context.application.chat_data.get(target_chat_id)
     if not chat_store:
-        await update.message.reply_text('No prayer requests found for that group.')
+        await reply_target.reply_text('No prayer requests found for that group.')
         return
 
     prayers = chat_store.get(PRAYER_REQUESTS_KEY)
     if not prayers:
-        await update.message.reply_text('No prayer requests found for that group.')
+        await reply_target.reply_text('No prayer requests found for that group.')
         return
 
     await send_long_message(update, format_prayer_requests(prayers))
@@ -268,10 +276,14 @@ def format_prayer_requests(requests):
 
 
 async def send_long_message(update: Update, text: str):
+    reply_target = update.effective_message
+    if not reply_target:
+        return
+
     max_length = 3800
 
     if len(text) <= max_length:
-        await update.message.reply_text(text)
+        await reply_target.reply_text(text)
         return
 
     current_chunk = []
@@ -280,7 +292,7 @@ async def send_long_message(update: Update, text: str):
     for line in text.splitlines():
         line_length = len(line) + 1
         if current_chunk and current_length + line_length > max_length:
-            await update.message.reply_text("\n".join(current_chunk))
+            await reply_target.reply_text("\n".join(current_chunk))
             current_chunk = []
             current_length = 0
 
@@ -288,7 +300,7 @@ async def send_long_message(update: Update, text: str):
         current_length += line_length
 
     if current_chunk:
-        await update.message.reply_text("\n".join(current_chunk))
+        await reply_target.reply_text("\n".join(current_chunk))
 
 
 async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -349,9 +361,10 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         matches = await get_known_prayerlist_choices(update, context, update.effective_user.id)
 
     # If command message was forwarded, add that source group as a pick option
-    if update.message and getattr(update.message, 'forward_from_chat', None):
-        forwarded_chat = update.message.forward_from_chat
-        matches.append((forwarded_chat.id, getattr(forwarded_chat, 'title', None) or f"Group {forwarded_chat.id}"))
+    if update.message:
+        forwarded_chat_id, forwarded_chat_title = get_forwarded_chat_info(update.message)
+        if forwarded_chat_id is not None:
+            matches.append((forwarded_chat_id, forwarded_chat_title or f"Group {forwarded_chat_id}"))
 
     # De-duplicate while preserving order
     deduped = []
