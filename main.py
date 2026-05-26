@@ -135,7 +135,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '<b>Welcome to Pew Pals!</b>\n'
         'Use the buttons below to generate a conversation question for your group.\n\n'
-        'If you want to collect prayer requests instead, use /pray <request> or send a message that starts with "Prayer request:".\n'
+        'If you want to collect prayer requests instead, use /pray &lt;request&gt; or send a message that starts with "Prayer request:".\n'
         'Use /prayerlist to see the requests collected in this chat.',
         reply_markup=reply_markup,
         parse_mode='HTML'
