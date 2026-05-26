@@ -30,6 +30,7 @@ Group = "-4245807653"
 AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
 PRAYER_REQUESTS_KEY: Final = "prayer_requests"
 LAST_PRAYERLIST_CHAT_ID_KEY: Final = "last_prayerlist_chat_id"
+PENDING_PRAYERLIST_SELECTION_KEY: Final = "pending_prayerlist_selection"
 PRAYER_PREFIXES: Final = (
     "prayer request:",
     "prayer request -",
@@ -198,6 +199,65 @@ def get_forwarded_chat_info(message):
     return None, None
 
 
+async def get_known_prayerlist_choices(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, query_text: str = ""):
+    titles = context.application.bot_data.get(CHAT_TITLES_KEY, {})
+    normalized_query = normalize_lookup_text(query_text) if query_text else ""
+    choices = []
+
+    for chat_id, title in titles.items():
+        if normalized_query and normalized_query not in normalize_lookup_text(title):
+            continue
+
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+        except Exception:
+            continue
+
+        if getattr(member, "status", None) in ("left", "kicked"):
+            continue
+
+        choices.append((chat_id, title))
+
+    choices.sort(key=lambda item: item[1].lower())
+    return choices
+
+
+async def show_prayerlist_choice_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE, choices):
+    context.user_data[PENDING_PRAYERLIST_SELECTION_KEY] = {str(chat_id): title for chat_id, title in choices}
+
+    keyboard = []
+    for chat_id, title in choices[:12]:
+        keyboard.append([InlineKeyboardButton(title, callback_data=f"prayerlist_pick:{chat_id}")])
+
+    keyboard.append([InlineKeyboardButton("Cancel", callback_data="prayerlist_cancel")])
+
+    await update.message.reply_text(
+        "I found more than one group you can access. Which prayer list do you want?",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def send_prayerlist_for_chat(update: Update, context: ContextTypes.DEFAULT_TYPE, target_chat_id: int):
+    user_id = update.effective_user.id
+    try:
+        await context.bot.get_chat_member(target_chat_id, user_id)
+    except Exception:
+        await update.message.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
+        return
+
+    chat_store = context.application.chat_data.get(target_chat_id)
+    if not chat_store:
+        await update.message.reply_text('No prayer requests found for that group.')
+        return
+
+    prayers = chat_store.get(PRAYER_REQUESTS_KEY)
+    if not prayers:
+        await update.message.reply_text('No prayer requests found for that group.')
+        return
+
+    await send_long_message(update, format_prayer_requests(prayers))
+
+
 def format_prayer_requests(requests):
     lines = ["Prayer Requests List🙏🏻:"]
 
@@ -236,7 +296,7 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ("group", "supergroup"):
         await update.message.reply_text(
             'The /pray command is for group chats only.\n'
-            'Add me to a group and use /pray <text>'
+            'Add me to a group and use /pray <request>'
         )
         return
 
@@ -281,54 +341,37 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             target_chat_id = int(arg)
         except Exception:
-            # Search cached titles
-            titles = context.application.bot_data.get(CHAT_TITLES_KEY, {})
-            normalized_arg = normalize_lookup_text(arg)
-            matches = [
-                (cid, title)
-                for cid, title in titles.items()
-                if normalized_arg in normalize_lookup_text(title)
-            ]
+            matches = await get_known_prayerlist_choices(update, context, update.effective_user.id, arg)
             if len(matches) == 1:
                 target_chat_id = matches[0][0]
             elif len(matches) == 0:
-                await update.message.reply_text("No groups matched that name. Forward a message from the group or provide the chat id.")
+                await update.message.reply_text(
+                    "No groups matched that name (or you're not in any cached groups with that name). Forward a message from the group or provide the chat id."
+                )
                 return
             else:
-                msg_lines = ["Multiple groups matched:"]
-                for cid, title in matches:
-                    msg_lines.append(f"- {title} ({cid})")
-                msg_lines.append("Please forward a message from the intended group or use the numeric chat id.")
-                await update.message.reply_text("\n".join(msg_lines))
+                await show_prayerlist_choice_prompt(update, context, matches)
                 return
 
-    # If the command itself is forwarded, or we've previously captured a forwarded group message, use that chat
+    # If the command itself is forwarded, use that chat
     elif update.message and getattr(update.message, 'forward_from_chat', None):
         target_chat_id = update.message.forward_from_chat.id
-    elif context.user_data.get(LAST_PRAYERLIST_CHAT_ID_KEY):
-        target_chat_id = context.user_data.get(LAST_PRAYERLIST_CHAT_ID_KEY)
     else:
-        await update.message.reply_text('Usage: forward a message from the group to me, or send /prayerlist <group name|chat_id>.')
+        matches = await get_known_prayerlist_choices(update, context, update.effective_user.id)
+        if not matches:
+            await update.message.reply_text(
+                "I couldn't find any groups you're currently in that I've seen before. Forward a message from the group or add the group's chat id to /prayerlist."
+            )
+            return
+
+        if len(matches) == 1:
+            await send_prayerlist_for_chat(update, context, matches[0][0])
+            return
+
+        await show_prayerlist_choice_prompt(update, context, matches)
         return
 
-    user_id = update.effective_user.id
-    try:
-        await context.bot.get_chat_member(target_chat_id, user_id)
-    except Exception:
-        await update.message.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
-        return
-
-    chat_store = context.application.chat_data.get(target_chat_id)
-    if not chat_store:
-        await update.message.reply_text('No prayer requests found for that group.')
-        return
-
-    prayers = chat_store.get(PRAYER_REQUESTS_KEY)
-    if not prayers:
-        await update.message.reply_text('No prayer requests found for that group.')
-        return
-
-    await send_long_message(update, format_prayer_requests(prayers))
+    await send_prayerlist_for_chat(update, context, target_chat_id)
 
 
 async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -343,6 +386,23 @@ async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TY
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer() 
+
+    if query.data == 'prayerlist_cancel':
+        context.user_data.pop(PENDING_PRAYERLIST_SELECTION_KEY, None)
+        await query.message.reply_text('Prayer list selection canceled.')
+        return
+
+    if query.data.startswith('prayerlist_pick:'):
+        selected_chat_id = query.data.split(':', 1)[1]
+        pending_choices = context.user_data.get(PENDING_PRAYERLIST_SELECTION_KEY, {})
+
+        if selected_chat_id not in pending_choices:
+            await query.message.reply_text('That prayer list selection is no longer available. Please send /prayerlist again.')
+            return
+
+        context.user_data.pop(PENDING_PRAYERLIST_SELECTION_KEY, None)
+        await send_prayerlist_for_chat(update, context, int(selected_chat_id))
+        return
 
     if query.data == 'option_1':
         response = random.choice(intro)
