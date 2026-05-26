@@ -39,6 +39,7 @@ PRAYER_PREFIXES: Final = (
     "prayer -",
 )
 CHAT_TITLES_KEY: Final = "chat_titles"
+USER_GROUPS_KEY: Final = "user_groups"
 
 intro = [
     "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
@@ -152,7 +153,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         " - NOTE: these commands only work inside group or supergroup chats. Add the bot to your group and run /pray or /prayer there.\n\n"
         "/prayerlist: Shows prayer requests depending on where you run it:\n"
         " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
-        " - In a private DM with the bot: run /prayerlist and pick a group from the selector (you can also forward a group message or use /prayerlist <group name|chat_id> to narrow choices). The bot will verify you are a member before returning that group's requests.\n\n"
+        " - In a private DM with the bot: run /prayerlist and pick a group from the selector (you can also forward a group message or use /prayerlist <group name|chat_id> to narrow choices).\n\n"
         "/clear_prayers: Clears the prayer request list for the current chat. NOTE: this command only works inside group or supergroup chats.\n\n"
         "/lore: Provides the bot’s about/mission text.\n\n"
         "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
@@ -199,21 +200,26 @@ def get_forwarded_chat_info(message):
     return None, None
 
 
+def track_user_group(context: ContextTypes.DEFAULT_TYPE, user_id: int, chat_id: int, title: str = ""):
+    user_groups = context.application.bot_data.setdefault(USER_GROUPS_KEY, {})
+    user_groups.setdefault(str(user_id), {})[str(chat_id)] = title
+
+
 async def get_known_prayerlist_choices(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, query_text: str = ""):
     titles = context.application.bot_data.get(CHAT_TITLES_KEY, {})
+    user_groups = context.application.bot_data.get(USER_GROUPS_KEY, {})
+    scoped_groups = user_groups.get(str(user_id), {})
     normalized_query = normalize_lookup_text(query_text) if query_text else ""
     choices = []
 
-    for chat_id, title in titles.items():
-        if normalized_query and normalized_query not in normalize_lookup_text(title):
-            continue
-
+    for chat_id_text, scoped_title in scoped_groups.items():
         try:
-            member = await context.bot.get_chat_member(chat_id, user_id)
+            chat_id = int(chat_id_text)
         except Exception:
             continue
 
-        if getattr(member, "status", None) in ("left", "kicked"):
+        title = scoped_title or titles.get(chat_id) or f"Group {chat_id}"
+        if normalized_query and normalized_query not in normalize_lookup_text(title):
             continue
 
         choices.append((chat_id, title))
@@ -240,17 +246,6 @@ async def show_prayerlist_choice_prompt(update: Update, context: ContextTypes.DE
 async def send_prayerlist_for_chat(update: Update, context: ContextTypes.DEFAULT_TYPE, target_chat_id: int):
     reply_target = update.effective_message
     if not reply_target:
-        return
-
-    user_id = update.effective_user.id
-    try:
-        member = await context.bot.get_chat_member(target_chat_id, user_id)
-    except Exception:
-        await reply_target.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
-        return
-
-    if getattr(member, "status", None) in ("left", "kicked"):
-        await reply_target.reply_text("I couldn't verify you're a member of that group (or I don't have access).")
         return
 
     chat_store = context.application.chat_data.get(target_chat_id)
@@ -319,6 +314,10 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Add a prayer request like /pray For my faith and love in God to grow.'
         )
         return
+
+    if update.effective_user and update.effective_chat:
+        chat_title = getattr(update.effective_chat, "title", "") or f"Group {update.effective_chat.id}"
+        track_user_group(context, update.effective_user.id, update.effective_chat.id, chat_title)
 
     store_prayer_request(context, update, prayer_text)
 
@@ -484,6 +483,14 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         if getattr(chat, 'title', None):
             context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[chat.id] = chat.title
 
+        if update.effective_user:
+            track_user_group(
+                context,
+                update.effective_user.id,
+                chat.id,
+                getattr(chat, 'title', None) or f"Group {chat.id}",
+            )
+
         prayer_request = extract_prayer_request(text)
 
         if prayer_request:
@@ -497,12 +504,19 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         else:
             return
     else:
-        if update.message and getattr(update.message, 'forward_from_chat', None):
+        if update.message:
             forwarded_chat_id, forwarded_chat_title = get_forwarded_chat_info(update.message)
             if forwarded_chat_id is not None:
                 context.user_data[LAST_PRAYERLIST_CHAT_ID_KEY] = forwarded_chat_id
                 if forwarded_chat_title:
                     context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[forwarded_chat_id] = forwarded_chat_title
+                if update.effective_user:
+                    track_user_group(
+                        context,
+                        update.effective_user.id,
+                        forwarded_chat_id,
+                        forwarded_chat_title or f"Group {forwarded_chat_id}",
+                    )
                 await update.message.reply_text(
                     f"Captured group reference for prayer lookup: {forwarded_chat_title or forwarded_chat_id}.\n"
                     f"Now send /prayerlist to view that group's prayer requests."
