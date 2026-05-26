@@ -334,7 +334,8 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not prayer_text:
         await update.message.reply_text(
-            'Add a prayer request like /pray For my faith and love in God to grow.'
+            'Add your prayer request📎\n'
+            'E.g. /pray For my faith and love in God to grow.'
         )
         return
 
@@ -344,7 +345,7 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     store_prayer_request(context, update, prayer_text)
 
-    await update.message.reply_text('Prayer request captured or updated.\n'
+    await update.message.reply_text('Prayer request received!✍🏻\n'
     'Use /prayerlist to see the running list.')
 
 
@@ -368,6 +369,15 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     # In private chat, use Telegram's native group picker to select a chat and share its id.
+    # If the user already has known groups, offer an inline selection first
+    if update.effective_user:
+        user_id = update.effective_user.id
+        choices = await get_known_prayerlist_choices(update, context, user_id)
+        if choices:
+            await show_prayerlist_choice_prompt(update, context, choices)
+            return
+
+    # Otherwise fall back to the native group-picker (chat share)
     context.user_data[AWAITING_PRAYERLIST_CHAT_SHARE_KEY] = True
     context.user_data[PRAYERLIST_CHAT_REQUEST_ID_KEY] = PRAYERLIST_CHAT_REQUEST_ID
     await update.message.reply_text(
@@ -414,15 +424,27 @@ async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
     shared_title = getattr(shared_chat, "title", None)
     selected_chat_key = str(selected_chat_id)
 
+    # Try to fetch the chat title via Telegram API if available and cache it
+    fetched_title = None
+    try:
+        chat_obj = await context.bot.get_chat(selected_chat_id)
+        fetched_title = getattr(chat_obj, "title", None)
+        if fetched_title:
+            context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[selected_chat_key] = fetched_title
+    except Exception:
+        fetched_title = None
+
     # Check user-scoped known groups for a title
     user_groups = context.application.bot_data.get(USER_GROUPS_KEY, {})
     user_known_title = None
     if update.effective_user:
         user_known_title = user_groups.get(str(update.effective_user.id), {}).get(selected_chat_key)
 
-    # Try int-keyed cache, then str-keyed cache, then user-known title, then shared payload
+    # Prefer freshly fetched title, then int-keyed cache, str-keyed cache,
+    # then user-known title, then shared payload
     selected_title = (
-        titles_cache.get(selected_chat_id)
+        fetched_title
+        or titles_cache.get(selected_chat_id)
         or titles_cache.get(selected_chat_key)
         or user_known_title
         or shared_title
