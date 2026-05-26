@@ -215,7 +215,8 @@ async def get_known_prayerlist_choices(update: Update, context: ContextTypes.DEF
         except Exception:
             continue
 
-        title = scoped_title or titles.get(chat_id) or f"Group {chat_id}"
+        # Titles may be stored with int or str keys; try both
+        title = scoped_title or titles.get(chat_id) or titles.get(str(chat_id)) or f"Group {chat_id}"
         if normalized_query and normalized_query not in normalize_lookup_text(title):
             continue
 
@@ -398,13 +399,29 @@ async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     selected_chat_id = shared_chat.chat_id
 
-    # Prefer a cached title (from when the bot saw the group) over the shared payload
-    titles_cache = context.application.bot_data.get(CHAT_TITLES_KEY, {})
-    shared_title = getattr(shared_chat, "title", None)
-    selected_title = titles_cache.get(selected_chat_id) or shared_title or f"Group {selected_chat_id}"
+        # Prefer a cached title (from when the bot saw the group) over the shared payload.
+        # Be resilient to int vs str keys and use the user's known-groups mapping as a fallback.
+        titles_cache = context.application.bot_data.get(CHAT_TITLES_KEY, {})
+        shared_title = getattr(shared_chat, "title", None)
+        selected_chat_key = str(selected_chat_id)
 
-    # Ensure we store a usable title for later lookups
-    context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[selected_chat_id] = selected_title
+        # Check user-scoped known groups for a title
+        user_groups = context.application.bot_data.get(USER_GROUPS_KEY, {})
+        user_known_title = None
+        if update.effective_user:
+            user_known_title = user_groups.get(str(update.effective_user.id), {}).get(selected_chat_key)
+
+        # Try int-keyed cache, then str-keyed cache, then user-known title, then shared payload
+        selected_title = (
+            titles_cache.get(selected_chat_id)
+            or titles_cache.get(selected_chat_key)
+            or user_known_title
+            or shared_title
+            or f"Group {selected_chat_id}"
+        )
+
+        # Store under a string key for consistent future lookups
+        context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[selected_chat_key] = selected_title
     if update.effective_user:
         track_user_group(context, update.effective_user.id, selected_chat_id, selected_title)
 
@@ -514,7 +531,8 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         # Cache the group's title so users can refer to it later from a private chat
         chat = update.message.chat
         if getattr(chat, 'title', None):
-            context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[chat.id] = chat.title
+            # Store under string keys for consistency
+            context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[str(chat.id)] = chat.title
 
         if update.effective_user:
             track_user_group(
