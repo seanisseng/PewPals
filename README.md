@@ -31,6 +31,7 @@ Here are the available commands for interacting with The Pew Pal Bot:
 | `/pray`              | Adds a prayer request to the current group chat's running list.        |
 | `/prayers`           | Returns the prayer requests that have been captured in the current chat. |
 | `/clear_prayers`     | Clears the stored prayer request list for the current chat.            |
+| `/prayers_for`       | In a private chat, forward a message from a group (or pass the group chat id) to retrieve that group's prayer requests if you are a member. |
 
 ---
 
@@ -70,6 +71,7 @@ To set up The Pew Pal Bot for your Telegram group or personal use, follow these 
 3. Use it during small group sessions, one-on-one conversations, or personal reflection to foster deeper connections.
 4. In a group, collect prayer requests with `/pray <request>` or a message that starts with `Prayer request:`.
 5. Use `/prayers` to print the collated requests for the chat.
+6. To fetch a group's requests from a private chat with the bot, forward a message from that group to the bot or run `/prayers_for <chat_id>`.
 
 Note:
 - If you want the bot to pick up ordinary group messages instead of only commands and replies, make sure Telegram privacy mode is disabled for the bot in BotFather.
