@@ -136,7 +136,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '<b>Welcome to Pew Pals!</b>\n'
         'Use the buttons below to generate a conversation question for your group.\n\n'
         'If you want to collect prayer requests instead, use /pray <request> or send a message that starts with "Prayer request:".\n'
-        'Use /prayers to see the requests collected in this chat.',
+        'Use /prayerlist to see the requests collected in this chat.',
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -144,12 +144,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start: Opens the question menu (buttons for Intro, Work/Life, Church, Christian Living, Surprise Me!) and shows short onboarding. Clicking a button sends a random question from that category.\n\n"
-        "/lore: P the bot’s about/mission text.\n\n"
-        "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
-        "/pray: Adds or updates the current user’s prayer request for the current chat (one request per user). Use /pray <text>.\n\n"
-        "/prayers: Sends the collated list of prayer requests stored for the current chat (one entry per submitting user).\n\n"
+        "/pray or /prayer: Adds or updates the current user’s prayer request for the current chat (one request per user). Use /pray <text> or /prayer <text>. NOTE: these commands only work inside group or supergroup chats. To add a request, add the bot to your group and run /pray or /prayer there or post a message that starts with \"Prayer request:\" in the group.\n\n"
+        "/prayerlist: Shows prayer requests depending on where you run it:\n"
+        " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
+        " - In a private DM with the bot: forward a message from a group, or run /prayerlist <group name|chat_id> to fetch another group's requests (the bot will verify you are a member before returning the list).\n\n"
         "/clear_prayers: Clears the prayer request list for the current chat.\n\n"
-        "/prayerlist: In a private chat with the bot, forward a message from a group (or pass the group chat id or group name) to retrieve that group's prayer requests if you are a member."
+        "/lore: Provides the bot’s about/mission text.\n\n"
+        "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
     )
 
 
@@ -210,6 +211,13 @@ async def send_long_message(update: Update, text: str):
 
 
 async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Allow this command only in group chats
+    if update.effective_chat.type not in ("group", "supergroup"):
+        await update.message.reply_text(
+            'The /pray command is for group chats only. Add me to a group and use /pray <text> or post a message that starts with "Prayer request:" in the group.'
+        )
+        return
+
     prayer_text = " ".join(context.args).strip()
 
     if not prayer_text:
@@ -220,21 +228,24 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     store_prayer_request(context, update, prayer_text)
 
-    await update.message.reply_text('Prayer request captured or updated. Use /prayers to see the running list.')
+    await update.message.reply_text('Prayer request captured or updated. Use /prayerlist to see the running list.')
 
 
-async def prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    prayer_requests = get_prayer_requests(context)
-
-    if not prayer_requests:
-        await update.message.reply_text('No prayer requests have been captured yet.')
-        return
-
-    await send_long_message(update, format_prayer_requests(prayer_requests))
+# Note: the old `prayers_command` was removed. Use `prayerlist_command` instead.
 
 
 async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # This command must be used in a private chat with the bot.
+    # If invoked inside a group, show that group's prayer list
+    if update.effective_chat.type in ("group", "supergroup"):
+        prayer_requests = get_prayer_requests(context)
+        if not prayer_requests:
+            await update.message.reply_text('No prayer requests have been captured yet in this chat.')
+            return
+
+        await send_long_message(update, format_prayer_requests(prayer_requests))
+        return
+
+    # Otherwise, private chat: allow lookup by forwarded message, chat id or group name
     if update.effective_chat.type != 'private':
         await update.message.reply_text('Please DM me this command or forward a group message to me.')
         return
@@ -372,7 +383,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
 
         if prayer_request:
             store_prayer_request(context, update, prayer_request)
-            await update.message.reply_text('Prayer request captured or updated.\nUse /prayers to see the running list.')
+            await update.message.reply_text('Prayer request captured or updated.\nUse /prayerlist to see the running list.')
             return
 
         if BOT_USERNAME in text:
@@ -406,7 +417,9 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('lore', lore_command))
     app.add_handler(CommandHandler('feedback', feedback_command))
     app.add_handler(CommandHandler('pray', prayer_command))
-    app.add_handler(CommandHandler('prayers', prayers_command))
+    # Alias: allow /prayer to behave the same as /pray
+    app.add_handler(CommandHandler('prayer', prayer_command))
+    # Note: /prayers command has been removed. Use /prayerlist for viewing prayer lists.
     app.add_handler(CommandHandler('clear_prayers', clear_prayers_command))
     app.add_handler(CommandHandler('prayerlist', prayerlist_command))
     app.add_handler(CommandHandler('Sean', sean_command))
