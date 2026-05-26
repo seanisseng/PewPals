@@ -139,13 +139,22 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Grab a friend, pick a category of question and start chatting away 😁\n\n'
-        'For prayer requests in a group, use /prayer <request> or start a message with "Prayer request:".\n'
+        'For prayer requests in a group, use /pray <request> or start a message with "Prayer request:".\n'
         'Use /prayers to see the requests that have been collected so far.'
     )
 
 
 def get_prayer_requests(context: ContextTypes.DEFAULT_TYPE):
-    return context.chat_data.setdefault(PRAYER_REQUESTS_KEY, [])
+    return context.chat_data.setdefault(PRAYER_REQUESTS_KEY, {})
+
+
+def store_prayer_request(context: ContextTypes.DEFAULT_TYPE, update: Update, prayer_text: str):
+    prayer_requests = get_prayer_requests(context)
+    sender = update.effective_user
+    sender_name = sender.full_name if sender else "Unknown"
+    sender_id = str(sender.id) if sender else "unknown"
+
+    prayer_requests[sender_id] = {"name": sender_name, "text": prayer_text}
 
 
 def extract_prayer_request(text: str):
@@ -161,7 +170,7 @@ def extract_prayer_request(text: str):
 def format_prayer_requests(requests):
     lines = ["Prayer requests collected so far:"]
 
-    for index, request in enumerate(requests, start=1):
+    for index, request in enumerate(requests.values(), start=1):
         lines.append(f"{index}. {request['name']}: {request['text']}")
 
     return "\n".join(lines)
@@ -196,15 +205,13 @@ async def prayer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not prayer_text:
         await update.message.reply_text(
-            'Send a request like /prayer Please pray for my exams, or post a message that starts with "Prayer request:".'
+            'Send a request like /pray Please pray for my exams, or post a message that starts with "Prayer request:".'
         )
         return
 
-    prayer_requests = get_prayer_requests(context)
-    sender_name = update.effective_user.full_name if update.effective_user else "Unknown"
-    prayer_requests.append({"name": sender_name, "text": prayer_text})
+    store_prayer_request(context, update, prayer_text)
 
-    await update.message.reply_text('Prayer request captured. Use /prayers to see the running list.')
+    await update.message.reply_text('Prayer request captured or updated. Use /prayers to see the running list.')
 
 
 async def prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -296,10 +303,8 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         prayer_request = extract_prayer_request(text)
 
         if prayer_request:
-            prayer_requests = get_prayer_requests(context)
-            sender_name = update.effective_user.full_name if update.effective_user else "Unknown"
-            prayer_requests.append({"name": sender_name, "text": prayer_request})
-            await update.message.reply_text('Prayer request captured. Use /prayers to see the running list.')
+            store_prayer_request(context, update, prayer_request)
+            await update.message.reply_text('Prayer request captured or updated. Use /prayers to see the running list.')
             return
 
         if BOT_USERNAME in text:
@@ -332,7 +337,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('lore', lore_command))
     app.add_handler(CommandHandler('feedback', feedback_command))
-    app.add_handler(CommandHandler('prayer', prayer_command))
+    app.add_handler(CommandHandler('pray', prayer_command))
     app.add_handler(CommandHandler('prayers', prayers_command))
     app.add_handler(CommandHandler('clear_prayers', clear_prayers_command))
     app.add_handler(CommandHandler('Sean', sean_command))
