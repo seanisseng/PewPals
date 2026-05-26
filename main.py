@@ -333,45 +333,42 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text('Please DM me this command or forward a group message to me.')
         return
 
-    target_chat_id = None
+    # In private chat, always prompt the user to pick a group first.
+    # The selected group id is then used to fetch and display its prayer list.
+    matches = []
 
-    # If args provided, treat as chat id or group name
+    # Optional filter/seed from command argument
     if context.args:
         arg = " ".join(context.args).strip()
         try:
-            target_chat_id = int(arg)
+            chat_id_arg = int(arg)
+            matches.append((chat_id_arg, f"Group {chat_id_arg}"))
         except Exception:
             matches = await get_known_prayerlist_choices(update, context, update.effective_user.id, arg)
-            if len(matches) == 1:
-                target_chat_id = matches[0][0]
-            elif len(matches) == 0:
-                await update.message.reply_text(
-                    "No groups matched that name (or you're not in any cached groups with that name). Forward a message from the group or provide the chat id."
-                )
-                return
-            else:
-                await show_prayerlist_choice_prompt(update, context, matches)
-                return
-
-    # If the command itself is forwarded, use that chat
-    elif update.message and getattr(update.message, 'forward_from_chat', None):
-        target_chat_id = update.message.forward_from_chat.id
     else:
         matches = await get_known_prayerlist_choices(update, context, update.effective_user.id)
-        if not matches:
-            await update.message.reply_text(
-                "I couldn't find any groups you're currently in that I've seen before. Forward a message from the group or add the group's chat id to /prayerlist."
-            )
-            return
 
-        if len(matches) == 1:
-            await send_prayerlist_for_chat(update, context, matches[0][0])
-            return
+    # If command message was forwarded, add that source group as a pick option
+    if update.message and getattr(update.message, 'forward_from_chat', None):
+        forwarded_chat = update.message.forward_from_chat
+        matches.append((forwarded_chat.id, getattr(forwarded_chat, 'title', None) or f"Group {forwarded_chat.id}"))
 
-        await show_prayerlist_choice_prompt(update, context, matches)
+    # De-duplicate while preserving order
+    deduped = []
+    seen_chat_ids = set()
+    for chat_id, title in matches:
+        if chat_id in seen_chat_ids:
+            continue
+        seen_chat_ids.add(chat_id)
+        deduped.append((chat_id, title))
+
+    if not deduped:
+        await update.message.reply_text(
+            "I couldn't find any groups to choose from. Forward a message from the group or send /prayerlist <group name|chat_id>."
+        )
         return
 
-    await send_prayerlist_for_chat(update, context, target_chat_id)
+    await show_prayerlist_choice_prompt(update, context, deduped)
 
 
 async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
