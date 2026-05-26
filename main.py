@@ -1,14 +1,10 @@
 from typing import Final
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, ApplicationBuilder, CallbackQueryHandler
-import base64
-import json
 import random
 import requests
 import urllib.parse
 import os
-import threading
-import time
 
 def load_env_file(file_path: str = ".env"):
     if not os.path.exists(file_path):
@@ -43,13 +39,6 @@ PRAYER_PREFIXES: Final = (
     "prayer -",
 )
 CHAT_TITLES_KEY: Final = "chat_titles"
-STATE_FILE: Final = os.path.join(os.path.dirname(__file__), "bot_state.json")
-GITHUB_REPO_OWNER: Final = os.getenv("GITHUB_REPO_OWNER", "seanisseng")
-GITHUB_REPO_NAME: Final = os.getenv("GITHUB_REPO_NAME", "PewPals")
-GITHUB_STATE_PATH: Final = os.getenv("GITHUB_STATE_PATH", "bot_state.json")
-GITHUB_STATE_BRANCH: Final = os.getenv("GITHUB_STATE_BRANCH", "main")
-GITHUB_TOKEN: Final = os.getenv("GITHUB_TOKEN", "")
-STATE_LOCK = threading.Lock()
 
 intro = [
     "Rice, Noodles, Bread, Potatoes. Rank them from best to worst and explain.",
@@ -134,152 +123,6 @@ def auto_forward(text: str):
     response = requests.get(base_url)
 
 
-def build_state_snapshot(app):
-    chat_titles = app.bot_data.get(CHAT_TITLES_KEY, {})
-    prayer_requests = {}
-
-    for chat_id, chat_store in app.chat_data.items():
-        if not chat_store:
-            continue
-
-        requests_by_user = chat_store.get(PRAYER_REQUESTS_KEY)
-        if requests_by_user:
-            prayer_requests[str(chat_id)] = requests_by_user
-
-    return {
-        "chat_titles": {str(chat_id): title for chat_id, title in chat_titles.items()},
-        "prayer_requests": prayer_requests,
-    }
-
-
-def apply_state_snapshot(app, state):
-    app.bot_data.setdefault(CHAT_TITLES_KEY, {})
-
-    chat_titles = state.get("chat_titles", {})
-    prayer_requests = state.get("prayer_requests", {})
-
-    app.bot_data[CHAT_TITLES_KEY].update({int(chat_id): title for chat_id, title in chat_titles.items()})
-
-    for chat_id_str, requests_by_user in prayer_requests.items():
-        try:
-            chat_id = int(chat_id_str)
-        except ValueError:
-            continue
-
-        app.chat_data.setdefault(chat_id, {})[PRAYER_REQUESTS_KEY] = requests_by_user
-
-
-def read_state_from_github():
-    if not GITHUB_TOKEN:
-        return None
-
-    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/contents/{GITHUB_STATE_PATH}?ref={GITHUB_STATE_BRANCH}"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    response = requests.get(url, headers=headers, timeout=20)
-    if response.status_code == 404:
-        return None
-    response.raise_for_status()
-
-    payload = response.json()
-    content = payload.get("content")
-    if not content:
-        return None
-
-    decoded = base64.b64decode(content.replace("\n", "")).decode("utf-8")
-    return json.loads(decoded)
-
-
-def write_state_to_github(app):
-    if not GITHUB_TOKEN:
-        return False
-
-    state = build_state_snapshot(app)
-    content = base64.b64encode(json.dumps(state, indent=2, ensure_ascii=False).encode("utf-8")).decode("ascii")
-    url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/contents/{GITHUB_STATE_PATH}"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    existing = requests.get(f"{url}?ref={GITHUB_STATE_BRANCH}", headers=headers, timeout=20)
-    sha = None
-    if existing.status_code == 200:
-        try:
-            sha = existing.json().get("sha")
-        except Exception:
-            sha = None
-    elif existing.status_code not in (404,):
-        existing.raise_for_status()
-
-    payload = {
-        "message": "Update bot state snapshot",
-        "content": content,
-        "branch": GITHUB_STATE_BRANCH,
-    }
-    if sha:
-        payload["sha"] = sha
-
-    response = requests.put(url, headers=headers, json=payload, timeout=20)
-    response.raise_for_status()
-    return True
-
-
-def load_state(app):
-    with STATE_LOCK:
-        try:
-            state = read_state_from_github()
-            if state is None and os.path.exists(STATE_FILE):
-                with open(STATE_FILE, "r", encoding="utf-8") as state_file:
-                    state = json.load(state_file)
-        except Exception as exc:
-            print(f"Failed to load state snapshot: {exc}")
-            state = None
-
-        if not state:
-            app.bot_data.setdefault(CHAT_TITLES_KEY, {})
-            return
-
-        apply_state_snapshot(app, state)
-
-
-def save_state(app):
-    with STATE_LOCK:
-        state = build_state_snapshot(app)
-
-        try:
-            with open(STATE_FILE, "w", encoding="utf-8") as state_file:
-                json.dump(state, state_file, indent=2, ensure_ascii=False)
-        except Exception as exc:
-            print(f"Failed to save local state file: {exc}")
-
-        try:
-            write_state_to_github(app)
-        except Exception as exc:
-            print(f"Failed to save GitHub state snapshot: {exc}")
-
-
-def daily_state_save_loop(app):
-    while True:
-        time.sleep(24 * 60 * 60)
-        save_state(app)
-
-
-def cache_chat_title(app, chat_id: int, title: str):
-    titles = app.bot_data.setdefault(CHAT_TITLES_KEY, {})
-    previous_title = titles.get(chat_id)
-    if previous_title == title:
-        return False
-
-    titles[chat_id] = title
-    return True
-
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Intro", callback_data='option_1'), InlineKeyboardButton("Work/Life", callback_data='option_2')],
@@ -327,7 +170,6 @@ def store_prayer_request(context: ContextTypes.DEFAULT_TYPE, update: Update, pra
     sender_id = str(sender.id) if sender else "unknown"
 
     prayer_requests[sender_id] = {"name": sender_name, "text": prayer_text}
-    save_state(context.application)
 
 
 def extract_prayer_request(text: str):
@@ -539,7 +381,6 @@ async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     context.chat_data[PRAYER_REQUESTS_KEY] = {}
-    save_state(context.application)
     await update.message.reply_text('Prayer request list cleared for this chat.')
     
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -631,8 +472,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
         # Cache the group's title so users can refer to it later from a private chat
         chat = update.message.chat
         if getattr(chat, 'title', None):
-            if cache_chat_title(context.application, chat.id, chat.title):
-                save_state(context.application)
+            context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[chat.id] = chat.title
 
         prayer_request = extract_prayer_request(text)
 
@@ -652,8 +492,7 @@ async def handle_message(update: Update, context:ContextTypes.DEFAULT_TYPE):
             if forwarded_chat_id is not None:
                 context.user_data[LAST_PRAYERLIST_CHAT_ID_KEY] = forwarded_chat_id
                 if forwarded_chat_title:
-                    if cache_chat_title(context.application, forwarded_chat_id, forwarded_chat_title):
-                        save_state(context.application)
+                    context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[forwarded_chat_id] = forwarded_chat_title
                 await update.message.reply_text(
                     f"Captured group reference for prayer lookup: {forwarded_chat_title or forwarded_chat_id}.\n"
                     f"Now send /prayerlist to view that group's prayer requests."
@@ -677,8 +516,6 @@ if __name__ == '__main__':
         )
 
     app = ApplicationBuilder().token(TOKEN).build()
-    load_state(app)
-    threading.Thread(target=daily_state_save_loop, args=(app,), daemon=True).start()
 
     # Commands
     app.add_handler(CommandHandler('start', start_command))
