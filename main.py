@@ -232,12 +232,6 @@ def write_state_to_github(app):
 
 def load_state(app):
     with STATE_LOCK:
-        print(
-            "State config: "
-            f"github_token={'set' if GITHUB_TOKEN else 'missing'}, "
-            f"repo={GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}, "
-            f"branch={GITHUB_STATE_BRANCH}, path={GITHUB_STATE_PATH}"
-        )
         try:
             state = read_state_from_github()
             if state is None and os.path.exists(STATE_FILE):
@@ -265,8 +259,7 @@ def save_state(app):
             print(f"Failed to save local state file: {exc}")
 
         try:
-            github_saved = write_state_to_github(app)
-            print(f"GitHub state save: {'ok' if github_saved else 'skipped (token missing)'}")
+            write_state_to_github(app)
         except Exception as exc:
             print(f"Failed to save GitHub state snapshot: {exc}")
 
