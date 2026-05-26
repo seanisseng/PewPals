@@ -135,23 +135,33 @@ def auto_forward(text: str):
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Intro / onboarding explaining the two main purposes of the bot
+    message = (
+        "<b>Welcome to Pew Pals!🤩🥸🤠</b>\n\n"
+        "<b>What I do</b>\n"
+        "1) <b>Conversation prompts🥳</b>\n"
+        "Use <code>/questions</code> to get conversation prompts in a group chat or in private with the bot.\n\n"
+        "2) <b>Collect prayer requests😇</b>\n"
+        "Add the bot to a group and use <code>/pray &lt;request&gt;</code> to collate prayer requests for that group.\n"
+        "Run <code>/prayerlist</code> in that group to see the collected requests.\n"
+        "Run <code>/prayerlist</code> in a private chat with the bot and tap 'Choose a Group 👥' to view a group's requests without spamming the group.\n"
+    )
+
+    await update.message.reply_text(message, parse_mode='HTML')
+
+
+async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Intro", callback_data='option_1'), InlineKeyboardButton("Work/Life", callback_data='option_2')],
         [InlineKeyboardButton("Church", callback_data='option_3'), InlineKeyboardButton("Christian Living", callback_data='option_4')],
         [InlineKeyboardButton("Surprise Me!", callback_data='option_5')]
     ]
 
-    # Create the markup with the buttons
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Send the message with the menu
     await update.message.reply_text(
-        '<b>Welcome to Pew Pals!</b>\n'
-        'Use the buttons below to generate a conversation question for your group.\n\n'
-        'If you want to collect prayer requests instead,\n'
-        '1. Add this bot to your group chat.\n'
-        '2. Use /pray &lt;request&gt; to add your prayer request.\n'
-        '3. In private chat, use /prayerlist then tap Choose a Group 👥 to select the group and view its list.',
+        '<b>Questions Menu</b>\n'
+        'Use the buttons below to select a category of question for your group.',
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -576,6 +586,7 @@ if __name__ == '__main__':
 
     # Commands
     app.add_handler(CommandHandler('start', start_command))
+    app.add_handler(CommandHandler('questions', questions_command))
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('lore', lore_command))
     app.add_handler(CommandHandler('feedback', feedback_command))
