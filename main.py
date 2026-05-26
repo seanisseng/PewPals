@@ -132,8 +132,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Send the message with the menu
     await update.message.reply_text(
-        'Welcome to Pew Pals!\n\n'
-        'Use the buttons below to generate a conversation question for your group.\n'
+        'Welcome to Pew Pals!\n'
+        'Use the buttons below to generate a conversation question for your group.\n\n'
         'If you want to collect prayer requests instead, use /pray <request> or send a message that starts with "Prayer request:".\n'
         'Use /prayers to see the requests collected in this chat.',
         reply_markup=reply_markup
