@@ -397,8 +397,13 @@ async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data.pop(PRAYERLIST_CHAT_REQUEST_ID_KEY, None)
 
     selected_chat_id = shared_chat.chat_id
-    selected_title = getattr(shared_chat, "title", None) or f"Group {selected_chat_id}"
 
+    # Prefer a cached title (from when the bot saw the group) over the shared payload
+    titles_cache = context.application.bot_data.get(CHAT_TITLES_KEY, {})
+    shared_title = getattr(shared_chat, "title", None)
+    selected_title = titles_cache.get(selected_chat_id) or shared_title or f"Group {selected_chat_id}"
+
+    # Ensure we store a usable title for later lookups
     context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[selected_chat_id] = selected_title
     if update.effective_user:
         track_user_group(context, update.effective_user.id, selected_chat_id, selected_title)
