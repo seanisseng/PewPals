@@ -1,5 +1,13 @@
 from typing import Final
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    KeyboardButton,
+    KeyboardButtonRequestChat,
+)
 from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes, ApplicationBuilder, CallbackQueryHandler
 import random
 import requests
@@ -31,6 +39,9 @@ AWAITING_FEEDBACK_KEY: Final = "awaiting_feedback"
 PRAYER_REQUESTS_KEY: Final = "prayer_requests"
 LAST_PRAYERLIST_CHAT_ID_KEY: Final = "last_prayerlist_chat_id"
 PENDING_PRAYERLIST_SELECTION_KEY: Final = "pending_prayerlist_selection"
+AWAITING_PRAYERLIST_CHAT_SHARE_KEY: Final = "awaiting_prayerlist_chat_share"
+PRAYERLIST_CHAT_REQUEST_ID_KEY: Final = "prayerlist_chat_request_id"
+PRAYERLIST_CHAT_REQUEST_ID: Final = 1
 PRAYER_PREFIXES: Final = (
     "prayer request:",
     "prayer request -",
@@ -141,7 +152,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'If you want to collect prayer requests instead,\n'
         '1. Add this bot to your group chat.\n'
         '2. Use /pray &lt;request&gt; to add your prayer request.\n'
-        '3. Use /prayerlist to see the requests collected in this chat.',
+        '3. In private chat, use /prayerlist then tap Choose a Group 👥 to select the group and view its list.',
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -153,7 +164,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         " - NOTE: these commands only work inside group or supergroup chats. Add the bot to your group and run /pray or /prayer there.\n\n"
         "/prayerlist: Shows prayer requests depending on where you run it:\n"
         " - In a group/supergroup: run /prayerlist to see the prayer requests collected for that chat.\n"
-        " - In a private DM with the bot: run /prayerlist and pick a group from the selector (you can also forward a group message or use /prayerlist <group name|chat_id> to narrow choices).\n\n"
+        " - In a private DM with the bot: run /prayerlist, tap Choose a Group 👥, then pick the group. The selected group ID is used to fetch that group's prayer list.\n\n"
         "/clear_prayers: Clears the prayer request list for the current chat. NOTE: this command only works inside group or supergroup chats.\n\n"
         "/lore: Provides the bot’s about/mission text.\n\n"
         "/feedback: Toggles feedback mode for the user; when active the next message is forwarded to the owners and acknowledged.\n\n"
@@ -240,6 +251,22 @@ async def show_prayerlist_choice_prompt(update: Update, context: ContextTypes.DE
     await update.message.reply_text(
         "Select a group to view its prayer list:",
         reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+def build_prayerlist_chat_picker_markup() -> ReplyKeyboardMarkup:
+    group_button = KeyboardButton(
+        text="Choose a Group 👥",
+        request_chat=KeyboardButtonRequestChat(
+            request_id=PRAYERLIST_CHAT_REQUEST_ID,
+            chat_is_channel=False,
+        ),
+    )
+
+    return ReplyKeyboardMarkup(
+        [[group_button]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
     )
 
 
@@ -344,43 +371,57 @@ async def prayerlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text('Please DM me this command or forward a group message to me.')
         return
 
-    # In private chat, always prompt the user to pick a group first.
-    # The selected group id is then used to fetch and display its prayer list.
-    matches = []
+    # In private chat, use Telegram's native group picker to select a chat and share its id.
+    context.user_data[AWAITING_PRAYERLIST_CHAT_SHARE_KEY] = True
+    context.user_data[PRAYERLIST_CHAT_REQUEST_ID_KEY] = PRAYERLIST_CHAT_REQUEST_ID
+    await update.message.reply_text(
+        "Tap the button below and select a group. I'll use that group ID to fetch its prayer list.",
+        reply_markup=build_prayerlist_chat_picker_markup(),
+    )
 
-    # Optional filter/seed from command argument
-    if context.args:
-        arg = " ".join(context.args).strip()
-        try:
-            chat_id_arg = int(arg)
-            matches.append((chat_id_arg, f"Group {chat_id_arg}"))
-        except Exception:
-            matches = await get_known_prayerlist_choices(update, context, update.effective_user.id, arg)
-    else:
-        matches = await get_known_prayerlist_choices(update, context, update.effective_user.id)
 
-    # If command message was forwarded, add that source group as a pick option
-    if update.message:
-        forwarded_chat_id, forwarded_chat_title = get_forwarded_chat_info(update.message)
-        if forwarded_chat_id is not None:
-            matches.append((forwarded_chat_id, forwarded_chat_title or f"Group {forwarded_chat_id}"))
+async def handle_shared_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    if not message:
+        return
 
-    # De-duplicate while preserving order
-    deduped = []
-    seen_chat_ids = set()
-    for chat_id, title in matches:
-        if chat_id in seen_chat_ids:
-            continue
-        seen_chat_ids.add(chat_id)
-        deduped.append((chat_id, title))
+    shared_chat = getattr(message, "chat_shared", None)
+    if not shared_chat:
+        return
 
-    if not deduped:
-        await update.message.reply_text(
-            "I couldn't find any groups to choose from. Forward a message from the group or send /prayerlist <group name|chat_id>."
+    is_awaiting = context.user_data.get(AWAITING_PRAYERLIST_CHAT_SHARE_KEY, False)
+    expected_request_id = context.user_data.get(PRAYERLIST_CHAT_REQUEST_ID_KEY)
+    received_request_id = getattr(shared_chat, "request_id", None)
+
+    if not is_awaiting:
+        await message.reply_text(
+            "Group received. Send /prayerlist when you want to fetch prayer requests.",
+            reply_markup=ReplyKeyboardRemove(),
         )
         return
 
-    await show_prayerlist_choice_prompt(update, context, deduped)
+    if expected_request_id is not None and received_request_id is not None and received_request_id != expected_request_id:
+        await message.reply_text(
+            "That group selection doesn't match the latest request. Send /prayerlist and try again.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return
+
+    context.user_data.pop(AWAITING_PRAYERLIST_CHAT_SHARE_KEY, None)
+    context.user_data.pop(PRAYERLIST_CHAT_REQUEST_ID_KEY, None)
+
+    selected_chat_id = shared_chat.chat_id
+    selected_title = getattr(shared_chat, "title", None) or f"Group {selected_chat_id}"
+
+    context.application.bot_data.setdefault(CHAT_TITLES_KEY, {})[selected_chat_id] = selected_title
+    if update.effective_user:
+        track_user_group(context, update.effective_user.id, selected_chat_id, selected_title)
+
+    await message.reply_text(
+        f"Selected group: {selected_title} ({selected_chat_id}). Fetching prayer list...",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await send_prayerlist_for_chat(update, context, selected_chat_id)
 
 
 async def clear_prayers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -554,6 +595,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('prayerlist', prayerlist_command))
     app.add_handler(CommandHandler('Sean', sean_command))
     app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(MessageHandler(filters.StatusUpdate.CHAT_SHARED, handle_shared_chat))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
